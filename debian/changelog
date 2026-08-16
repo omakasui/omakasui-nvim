@@ -1,3 +1,14 @@
+omakasui-nvim (1:0.0.2) unstable; urgency=medium
+
+  * Pin the LazyVim starter by commit and verify its checksum.
+  * Commit lazy-lock.json and restore from it instead of syncing to HEAD
+  * Fail the build when the plugin restore does not produce a usable cache, instead of shipping an empty one.
+  * Ship the payload once in omakasui-nvim.
+  * setup-nvim: derive the project from the invoked name, use id -un instead
+    of $USER, declare xdg-utils, and state in the prompt that plugin data, state and cache are deleted without a backup.
+
+ -- Luca Pattocchio <info@lucapattocchio.dev>  Mon, 17 Aug 2026 00:25:00 +0200
+
 omakasui-nvim (1:0.0.1) unstable; urgency=medium
 
   * Switch to semantic versioning.
