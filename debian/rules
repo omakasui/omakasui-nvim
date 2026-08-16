@@ -6,57 +6,58 @@ XDG_DATA_HOME   := $(BUILD_HOME)/.local/share
 XDG_STATE_HOME  := $(BUILD_HOME)/.local/state
 XDG_CACHE_HOME  := $(BUILD_HOME)/.cache
 
+STARTER_COMMIT := 803bc181d7c0d6d5eeba9274d9be49b287294d99
+STARTER_SHA256 := b580d0bdb1654342dcf9f24fa1d4584bb91046a06dc1b6c866cbd06719b9dc7a
+STARTER_DIR    := $(CURDIR)/debian/starter-$(STARTER_COMMIT)
+STARTER_TAR    := $(CURDIR)/debian/starter.tar.gz
+
+# Sanity floor for the restored plugin count.
+MIN_PLUGINS := 40
+
+SHARE_DIR := debian/omakasui-nvim/usr/share/omakasui-nvim
+
 %:
 	dh $@
 
-# No upstream build system: fetches the LazyVim starter, overlays our lua/
-# and plugin/ customizations, then runs a headless nvim to pre-fetch and
-# cache all plugins (network + nvim required — provided by the Docker build
-# environment in omakasui/build-apt-omakasui, not by dpkg-buildpackage
-# itself).
+# Overlays our config on the LazyVim starter, then caches the locked plugin set.
+# Needs network and nvim on PATH.
 override_dh_auto_build:
-	rm -rf $(BUILD_HOME) $(CURDIR)/debian/starter.tar.gz $(CURDIR)/debian/starter-main
+	rm -rf $(BUILD_HOME) $(STARTER_TAR) $(CURDIR)/debian/starter-*
 	mkdir -p $(XDG_CONFIG_HOME) $(XDG_DATA_HOME) $(XDG_STATE_HOME) $(XDG_CACHE_HOME)
-	curl -fsSL "https://github.com/LazyVim/starter/archive/refs/heads/main.tar.gz" \
-	  -o $(CURDIR)/debian/starter.tar.gz
-	tar -xzf $(CURDIR)/debian/starter.tar.gz -C $(CURDIR)/debian
-	cp -r $(CURDIR)/debian/starter-main $(XDG_CONFIG_HOME)/nvim
-	rm -rf $(XDG_CONFIG_HOME)/nvim/.git
-	mkdir -p $(XDG_CONFIG_HOME)/nvim/lua $(XDG_CONFIG_HOME)/nvim/plugin
+	curl -fsSL "https://github.com/LazyVim/starter/archive/$(STARTER_COMMIT).tar.gz" \
+	  -o $(STARTER_TAR)
+	echo "$(STARTER_SHA256)  $(STARTER_TAR)" | sha256sum -c -
+	tar -xzf $(STARTER_TAR) -C $(CURDIR)/debian
+	cp -r $(STARTER_DIR) $(XDG_CONFIG_HOME)/nvim
 	cp -r lua/.    $(XDG_CONFIG_HOME)/nvim/lua/
 	cp -r plugin/. $(XDG_CONFIG_HOME)/nvim/plugin/
-	cp lazyvim.json $(XDG_CONFIG_HOME)/nvim/lazyvim.json
-	echo 'vim.opt.relativenumber = false' >> $(XDG_CONFIG_HOME)/nvim/lua/config/options.lua
+	cp lazyvim.json    $(XDG_CONFIG_HOME)/nvim/lazyvim.json
+	cp lazy-lock.json  $(XDG_CONFIG_HOME)/nvim/lazy-lock.json
 	HOME=$(BUILD_HOME) \
 	XDG_CONFIG_HOME=$(XDG_CONFIG_HOME) \
 	XDG_DATA_HOME=$(XDG_DATA_HOME) \
 	XDG_STATE_HOME=$(XDG_STATE_HOME) \
 	XDG_CACHE_HOME=$(XDG_CACHE_HOME) \
-	  nvim --headless "+Lazy! sync" "+qa!" || true
+	  nvim --headless "+Lazy! restore" "+qa!" || true
+	# Never ship an empty plugin cache.
+	test -f $(XDG_CONFIG_HOME)/nvim/lazy-lock.json \
+	  || { echo "ERROR: lazy-lock.json missing after restore" >&2; exit 1; }
+	count=$$(find $(XDG_DATA_HOME)/nvim/lazy -maxdepth 1 -mindepth 1 -type d | wc -l); \
+	test "$$count" -ge $(MIN_PLUGINS) \
+	  || { echo "ERROR: only $$count plugins restored (expected >= $(MIN_PLUGINS))" >&2; exit 1; }
 
-# Stages the pre-cached config/data and a templated setup script into each
-# of the two binary packages (omakub-nvim, omadeb-nvim). Content is
-# identical between them except the setup script's {{PROJECT}} references
-# (theme-symlink source path), so they install to separate /usr/share/*-nvim
-# paths and can coexist.
+# Payload goes into omakasui-nvim only; omakub-nvim and omadeb-nvim just add
+# their /usr/bin symlink (see debian/*.links).
 override_dh_auto_install:
-	set -e; \
-	for PROJECT in omakub omadeb; do \
-	  PKG_NAME="$${PROJECT}-nvim"; \
-	  SHARE_DIR="debian/$$PKG_NAME/usr/share/$$PKG_NAME"; \
-	  BIN_DIR="debian/$$PKG_NAME/usr/bin"; \
-	  mkdir -p "$$SHARE_DIR" "$$BIN_DIR"; \
-	  cp -a $(XDG_CONFIG_HOME)/nvim "$$SHARE_DIR/config"; \
-	  cp -a $(XDG_DATA_HOME)/nvim   "$$SHARE_DIR/data"; \
-	  rm -rf "$$SHARE_DIR/data/site/"*; \
-	  mkdir -p "$$SHARE_DIR/data/site"; \
-	  chmod -R 755 "$$SHARE_DIR"; \
-	  find "$$SHARE_DIR" -type f -exec chmod 644 {} \; ; \
-	  sed -e "s|{{PROJECT}}|$$PROJECT|g" -e "s|{{PKG_NAME}}|$$PKG_NAME|g" \
-	    setup-nvim.template > "$$BIN_DIR/$${PROJECT}-setup-nvim"; \
-	  chmod 755 "$$BIN_DIR/$${PROJECT}-setup-nvim"; \
-	done
+	mkdir -p $(SHARE_DIR) debian/omakasui-nvim/usr/lib/omakasui-nvim
+	cp -a $(XDG_CONFIG_HOME)/nvim $(SHARE_DIR)/config
+	cp -a $(XDG_DATA_HOME)/nvim   $(SHARE_DIR)/data
+	rm -rf $(SHARE_DIR)/data/site/*
+	mkdir -p $(SHARE_DIR)/data/site
+	chmod -R 755 $(SHARE_DIR)
+	find $(SHARE_DIR) -type f -exec chmod 644 {} +
+	install -m 755 setup-nvim debian/omakasui-nvim/usr/lib/omakasui-nvim/setup-nvim
 
 override_dh_clean:
 	dh_clean
-	rm -rf $(BUILD_HOME) $(CURDIR)/debian/starter.tar.gz $(CURDIR)/debian/starter-main
+	rm -rf $(BUILD_HOME) $(STARTER_TAR) $(CURDIR)/debian/starter-*

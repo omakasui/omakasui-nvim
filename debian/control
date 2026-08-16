@@ -3,23 +3,36 @@ Section: editors
 Priority: optional
 Maintainer: Luca Pattocchio <info@lucapattocchio.dev>
 Standards-Version: 4.7.2
-Build-Depends: debhelper-compat (= 13)
+Build-Depends: debhelper-compat (= 13),
+               ca-certificates,
+               curl,
+               git,
+               nvim,
+               tar
 Rules-Requires-Root: no
+Homepage: https://github.com/omakasui/omakasui-nvim
+
+Package: omakasui-nvim
+Architecture: all
+Multi-Arch: foreign
+Depends: ${misc:Depends}, nvim, git, gum, xdg-utils
+Replaces: omakub-nvim (<< 1:0.0.2~), omadeb-nvim (<< 1:0.0.2~)
+Breaks: omakub-nvim (<< 1:0.0.2~), omadeb-nvim (<< 1:0.0.2~)
+Description: Pre-built LazyVim configuration (shared payload)
+ Installs pre-cached LazyVim config and plugins to /usr/share/omakasui-nvim,
+ plus the shared setup script. Install omakub-nvim or omadeb-nvim to get the
+ project-specific setup command.
 
 Package: omakub-nvim
 Architecture: all
-Depends: ${misc:Depends}, nvim, git, gum
-Homepage: https://github.com/LazyVim/LazyVim
+Depends: ${misc:Depends}, omakasui-nvim (= ${binary:Version})
 Description: Pre-built LazyVim configuration for Omabuntu/Omakub
- Installs pre-cached LazyVim config and plugins to /usr/share/omakub-nvim.
- Run the bundled omakub-setup-nvim script to activate it for the current
- user.
+ Provides the omakub-setup-nvim command, which activates the shared
+ omakasui-nvim payload for the current user.
 
 Package: omadeb-nvim
 Architecture: all
-Depends: ${misc:Depends}, nvim, git, gum
-Homepage: https://github.com/LazyVim/LazyVim
+Depends: ${misc:Depends}, omakasui-nvim (= ${binary:Version})
 Description: Pre-built LazyVim configuration for Omadeb
- Installs pre-cached LazyVim config and plugins to /usr/share/omadeb-nvim.
- Run the bundled omadeb-setup-nvim script to activate it for the current
- user.
+ Provides the omadeb-setup-nvim command, which activates the shared
+ omakasui-nvim payload for the current user.
