@@ -1,0 +1,11 @@
+omakasui-nvim (1:0.0.1) unstable; urgency=medium
+
+  * Switch to semantic versioning.
+
+ -- Luca Pattocchio <info@lucapattocchio.dev>  Sun, 16 Aug 2026 14:58:06 +0200
+
+omakasui-nvim (20260327.2) unstable; urgency=medium
+
+  * Initial release under native packaging.
+
+ -- Luca Pattocchio <info@lucapattocchio.dev>  Sun, 16 Aug 2026 14:37:57 +0200

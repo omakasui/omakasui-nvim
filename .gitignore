@@ -1,0 +1,13 @@
+/debian/build-home/
+/debian/starter.tar.gz
+/debian/starter-main/
+/debian/omakub-nvim/
+/debian/omadeb-nvim/
+/debian/.debhelper/
+/debian/*.debhelper.log
+/debian/*.substvars
+/debian/files
+/debian/debhelper-build-stamp
+/*.deb
+/*.buildinfo
+/*.changes

@@ -1,0 +1,62 @@
+#!/usr/bin/make -f
+
+BUILD_HOME    := $(CURDIR)/debian/build-home
+XDG_CONFIG_HOME := $(BUILD_HOME)/.config
+XDG_DATA_HOME   := $(BUILD_HOME)/.local/share
+XDG_STATE_HOME  := $(BUILD_HOME)/.local/state
+XDG_CACHE_HOME  := $(BUILD_HOME)/.cache
+
+%:
+	dh $@
+
+# No upstream build system: fetches the LazyVim starter, overlays our lua/
+# and plugin/ customizations, then runs a headless nvim to pre-fetch and
+# cache all plugins (network + nvim required — provided by the Docker build
+# environment in omakasui/build-apt-omakasui, not by dpkg-buildpackage
+# itself).
+override_dh_auto_build:
+	rm -rf $(BUILD_HOME) $(CURDIR)/debian/starter.tar.gz $(CURDIR)/debian/starter-main
+	mkdir -p $(XDG_CONFIG_HOME) $(XDG_DATA_HOME) $(XDG_STATE_HOME) $(XDG_CACHE_HOME)
+	curl -fsSL "https://github.com/LazyVim/starter/archive/refs/heads/main.tar.gz" \
+	  -o $(CURDIR)/debian/starter.tar.gz
+	tar -xzf $(CURDIR)/debian/starter.tar.gz -C $(CURDIR)/debian
+	cp -r $(CURDIR)/debian/starter-main $(XDG_CONFIG_HOME)/nvim
+	rm -rf $(XDG_CONFIG_HOME)/nvim/.git
+	mkdir -p $(XDG_CONFIG_HOME)/nvim/lua $(XDG_CONFIG_HOME)/nvim/plugin
+	cp -r lua/.    $(XDG_CONFIG_HOME)/nvim/lua/
+	cp -r plugin/. $(XDG_CONFIG_HOME)/nvim/plugin/
+	cp lazyvim.json $(XDG_CONFIG_HOME)/nvim/lazyvim.json
+	echo 'vim.opt.relativenumber = false' >> $(XDG_CONFIG_HOME)/nvim/lua/config/options.lua
+	HOME=$(BUILD_HOME) \
+	XDG_CONFIG_HOME=$(XDG_CONFIG_HOME) \
+	XDG_DATA_HOME=$(XDG_DATA_HOME) \
+	XDG_STATE_HOME=$(XDG_STATE_HOME) \
+	XDG_CACHE_HOME=$(XDG_CACHE_HOME) \
+	  nvim --headless "+Lazy! sync" "+qa!" || true
+
+# Stages the pre-cached config/data and a templated setup script into each
+# of the two binary packages (omakub-nvim, omadeb-nvim). Content is
+# identical between them except the setup script's {{PROJECT}} references
+# (theme-symlink source path), so they install to separate /usr/share/*-nvim
+# paths and can coexist.
+override_dh_auto_install:
+	set -e; \
+	for PROJECT in omakub omadeb; do \
+	  PKG_NAME="$${PROJECT}-nvim"; \
+	  SHARE_DIR="debian/$$PKG_NAME/usr/share/$$PKG_NAME"; \
+	  BIN_DIR="debian/$$PKG_NAME/usr/bin"; \
+	  mkdir -p "$$SHARE_DIR" "$$BIN_DIR"; \
+	  cp -a $(XDG_CONFIG_HOME)/nvim "$$SHARE_DIR/config"; \
+	  cp -a $(XDG_DATA_HOME)/nvim   "$$SHARE_DIR/data"; \
+	  rm -rf "$$SHARE_DIR/data/site/"*; \
+	  mkdir -p "$$SHARE_DIR/data/site"; \
+	  chmod -R 755 "$$SHARE_DIR"; \
+	  find "$$SHARE_DIR" -type f -exec chmod 644 {} \; ; \
+	  sed -e "s|{{PROJECT}}|$$PROJECT|g" -e "s|{{PKG_NAME}}|$$PKG_NAME|g" \
+	    setup-nvim.template > "$$BIN_DIR/$${PROJECT}-setup-nvim"; \
+	  chmod 755 "$$BIN_DIR/$${PROJECT}-setup-nvim"; \
+	done
+
+override_dh_clean:
+	dh_clean
+	rm -rf $(BUILD_HOME) $(CURDIR)/debian/starter.tar.gz $(CURDIR)/debian/starter-main
