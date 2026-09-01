@@ -1,6 +1,7 @@
 /debian/build-home/
 /debian/starter.tar.gz
-/debian/starter-main/
+/debian/starter-*/
+/debian/omakasui-nvim/
 /debian/omakub-nvim/
 /debian/omadeb-nvim/
 /debian/.debhelper/
