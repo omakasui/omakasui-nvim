@@ -1,3 +1,13 @@
+omakasui-nvim (1:0.0.3) unstable; urgency=medium
+
+  * Move setup-nvim under usr/lib/omakasui-nvim/ and install it through
+    debian/omakasui-nvim.install.
+  * Add -y/--yes to skip the confirmation and --no-backup to
+    delete the existing config instead of backing it up in setup-nvim.
+  * Ignore debian/omakasui-nvim/ and the commit-named starter directory.
+
+ -- Luca Pattocchio <info@lucapattocchio.dev>  Tue, 01 Sep 2026 00:00:00 +0200
+
 omakasui-nvim (1:0.0.2) unstable; urgency=medium
 
   * Pin the LazyVim starter by commit and verify its checksum.
