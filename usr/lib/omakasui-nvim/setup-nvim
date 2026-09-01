@@ -2,10 +2,45 @@
 # Copies the pre-cached LazyVim config/data into the current user's home.
 # Project name comes from the invoked name (omakub-setup-nvim -> omakub);
 # override with OMAKASUI_PROJECT.
+# Pass -y to skip the prompt and --no-backup to drop the existing config.
 
 set -euo pipefail
 
 PROJECT="${OMAKASUI_PROJECT:-$(basename -- "$0" | cut -d- -f1)}"
+
+ASSUME_YES=false
+DO_BACKUP=true
+
+usage() {
+  cat <<EOF
+Usage: $(basename -- "$0") [-y|--yes] [--no-backup]
+
+  -y, --yes        Skip the confirmation prompt
+      --no-backup  Delete the existing config instead of backing it up
+  -h, --help       Show this help
+EOF
+}
+
+while (( $# > 0 )); do
+  case "$1" in
+  -y | --yes)
+    ASSUME_YES=true
+    ;;
+  --no-backup)
+    DO_BACKUP=false
+    ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "Unknown option: $1" >&2
+    usage >&2
+    exit 2
+    ;;
+  esac
+  shift
+done
 
 PACKAGE_DIR="/usr/share/omakasui-nvim"
 CONFIG_DIR="${HOME}/.config/nvim"
@@ -20,13 +55,24 @@ if [[ ! -d "$PACKAGE_DIR" ]]; then
 fi
 
 if [[ -d "$CONFIG_DIR" ]]; then
-  if gum confirm "$(echo -e "Neovim configuration already exists at $CONFIG_DIR.\nThe config will be backed up, but plugin data, state and cache in\n$DATA_DIR,\n$STATE_DIR and\n$CACHE_DIR will be deleted without a backup. Continue?")"; then
+  if [[ $DO_BACKUP == true ]]; then
+    PROMPT="Neovim configuration already exists at $CONFIG_DIR.\nThe config will be backed up, but plugin data, state and cache in\n$DATA_DIR,\n$STATE_DIR and\n$CACHE_DIR will be deleted without a backup. Continue?"
+  else
+    PROMPT="Neovim configuration already exists at $CONFIG_DIR.\nIt will be deleted without a backup, along with plugin data, state and cache in\n$DATA_DIR,\n$STATE_DIR and\n$CACHE_DIR. Continue?"
+  fi
+
+  if [[ $ASSUME_YES != true ]] && ! gum confirm "$(echo -e "$PROMPT")"; then
+    echo "Setup cancelled."
+    exit 0
+  fi
+
+  if [[ $DO_BACKUP == true ]]; then
     BACKUP_DIR="${CONFIG_DIR}.backup.$(date +%Y%m%d-%H%M%S)"
     echo "Backing up existing config to $BACKUP_DIR"
     mv "$CONFIG_DIR" "$BACKUP_DIR"
   else
-    echo "Setup cancelled."
-    exit 0
+    echo "Removing existing config at $CONFIG_DIR (no backup)"
+    rm -rf "$CONFIG_DIR"
   fi
 fi
 
