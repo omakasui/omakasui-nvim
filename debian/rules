@@ -46,17 +46,15 @@ override_dh_auto_build:
 	test "$$count" -ge $(MIN_PLUGINS) \
 	  || { echo "ERROR: only $$count plugins restored (expected >= $(MIN_PLUGINS))" >&2; exit 1; }
 
-# Payload goes into omakasui-nvim only; omakub-nvim and omadeb-nvim just add
-# their /usr/bin symlink (see debian/*.links).
+# Only the generated payload; setup-nvim comes from debian/omakasui-nvim.install.
 override_dh_auto_install:
-	mkdir -p $(SHARE_DIR) debian/omakasui-nvim/usr/lib/omakasui-nvim
+	mkdir -p $(SHARE_DIR)
 	cp -a $(XDG_CONFIG_HOME)/nvim $(SHARE_DIR)/config
 	cp -a $(XDG_DATA_HOME)/nvim   $(SHARE_DIR)/data
 	rm -rf $(SHARE_DIR)/data/site/*
 	mkdir -p $(SHARE_DIR)/data/site
 	chmod -R 755 $(SHARE_DIR)
 	find $(SHARE_DIR) -type f -exec chmod 644 {} +
-	install -m 755 setup-nvim debian/omakasui-nvim/usr/lib/omakasui-nvim/setup-nvim
 
 override_dh_clean:
 	dh_clean
